@@ -10,30 +10,55 @@ import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
+import java.awt.Toolkit;
+import java.awt.datatransfer.Clipboard;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+
+import javax.imageio.ImageIO;
+import javax.swing.JDialog;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
+import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
+import javax.swing.JSeparator;
+import javax.swing.filechooser.FileFilter;
+import javax.swing.filechooser.FileNameExtensionFilter;
+
 import org.jlab.groot.base.PadMargins;
+import org.jlab.groot.data.GraphErrors;
 import org.jlab.groot.data.H1F;
 import org.jlab.groot.data.H2F;
 import org.jlab.groot.data.IDataSet;
+import org.jlab.groot.group.DataGroup;
 import org.jlab.groot.math.FunctionFactory;
+import org.jlab.groot.ui.TransferableImage;
 
 /**
  *
  * @author gavalian
  */
-public class EmbeddedCanvas extends JPanel {
+public class EmbeddedCanvas extends JPanel implements MouseMotionListener,MouseListener, ActionListener {
     
     private Timer        updateTimer = null;
     private Long numberOfPaints  = (long) 0;
     private Long paintingTime    = (long) 0;
-    
+    private JPopupMenu popup = null;
+    private int popupPad = 0;
     private List<EmbeddedPad>    canvasPads  = new ArrayList<EmbeddedPad>();
     private int                  ec_COLUMNS  = 1;
     private int                  ec_ROWS     = 1;
@@ -46,6 +71,18 @@ public class EmbeddedCanvas extends JPanel {
         this.setPreferredSize(new Dimension(500,400));        
         canvasPads.add(new EmbeddedPad());
         this.divide(1, 1);
+        this.createPopupMenu();
+        this.initMouse();
+    }
+    
+    public EmbeddedCanvas(EmbeddedPad pad){
+        this.setPreferredSize(new Dimension(500,400));
+        this.createPopupMenu();
+    }
+    
+    public final void initMouse(){
+        this.addMouseMotionListener(this);
+        this.addMouseListener(this);
     }
     
     public final void divide(int columns, int rows){
@@ -151,7 +188,7 @@ public class EmbeddedCanvas extends JPanel {
         
     public void update(){
         this.repaint();       
-        System.out.println(this.getBenchmarkString());
+        //System.out.println(this.getBenchmarkString());
     }
     
     public String getBenchmarkString(){
@@ -190,67 +227,230 @@ public class EmbeddedCanvas extends JPanel {
         this.numberOfPaints = 0L;
     }
     
+    public int getPadByXY(int x, int y){
+        int  rowSize = (int) this.getHeight()/this.ec_ROWS;
+        int  row = (int) (y/rowSize);
+        int  colSize = (int) this.getWidth()/this.ec_COLUMNS;
+        int  col = (int) (x/colSize);
+        return row*ec_ROWS + col;
+    }
+
+    public void draw(DataGroup group){
+        int nrows = group.getRows();
+        int ncols = group.getColumns();
+        this.divide(ncols, nrows);
+        
+        int nds   = nrows*ncols;
+        for(int i = 0; i < nds; i++){
+            List<IDataSet> dsList = group.getData(i);
+            this.cd(i);
+            for(IDataSet ds : dsList){
+                this.draw(ds, "same");
+            }
+        }
+    }
+    
+    @Override
+    public void mouseDragged(MouseEvent e) {
+        
+    }
+
+    @Override
+    public void mouseMoved(MouseEvent e) {
+        int pad = this.getPadByXY(e.getX(),e.getY());
+        //System.out.println("you're hovering over pad = " + pad);
+    }
+    @Override
+    public void mouseClicked(MouseEvent e) {
+        //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        if(e.getClickCount()==2){
+            int pad = this.getPadByXY(e.getX(),e.getY());
+            System.out.println("you double clicked on " + pad);
+            JDialog  dialogWin = new JDialog();            
+            dialogWin.setContentPane(new EmbeddedCanvas());
+            dialogWin.setSize(400, 400);
+            dialogWin.setVisible(true);
+        }
+       
+    }
+    
+    @Override
+    public void mousePressed(MouseEvent e) {
+    	 if (e.isPopupTrigger()) {
+             popupPad = getPadByXY(e.getX(),e.getY());
+             //System.out.println("POP-UP coordinates = " + e.getX() + " " + e.getY() + "  pad = " + popupPad);
+             popup.show(EmbeddedCanvas.this, e.getX(), e.getY());
+         }
+    }
+
+    @Override
+    public void mouseReleased(MouseEvent e) {
+        //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public void mouseEntered(MouseEvent e) {
+        //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public void mouseExited(MouseEvent e) {
+        //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+    
+    private void createPopupMenu(){
+        this.popup = new JPopupMenu();
+        JMenuItem itemCopy = new JMenuItem("Copy Canvas Image");
+        JMenuItem itemCopyPad = new JMenuItem("Copy Pad");
+        JMenuItem itemPaste = new JMenuItem("Paste Pad");
+        JMenuItem itemSave = new JMenuItem("Save");
+        JMenuItem itemSaveAs = new JMenuItem("Save As...");
+        JMenuItem itemFitPanel = new JMenuItem("Fit Panel");
+        JMenuItem itemOptions = new JMenuItem("Options");
+        JMenuItem itemOpenWindow = new JMenuItem("Open in New Window");
+        itemCopy.addActionListener(this);
+        itemCopyPad.addActionListener(this);
+        itemSave.addActionListener(this);
+        itemSaveAs.addActionListener(this);
+        itemFitPanel.addActionListener(this);
+        itemOptions.addActionListener(this);
+        itemOpenWindow.addActionListener(this);
+        itemPaste.addActionListener(this);
+        this.popup.add(itemCopy);
+        this.popup.add(itemCopyPad);
+        //this.popup.add(itemPaste);
+        this.popup.add(itemSave);
+        this.popup.add(itemSaveAs);
+        //this.popup.add(new JSeparator());
+        //this.popup.add(itemFitPanel);
+        //this.popup.add(new JSeparator());
+        //this.popup.add(itemOptions);
+        //this.popup.add(itemOpenWindow);
+        addMouseListener(this);
+    }
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        System.out.println("action performed " + e.getActionCommand());
+        /*
+        if(e.getActionCommand().compareTo("Options")==0){
+            this.openOptionsPanel(popupPad);
+        }
+        if(e.getActionCommand().compareTo("Fit Panel")==0){
+            this.openFitPanel(popupPad);
+        }*/
+        if(e.getActionCommand().compareTo("Copy")==0){
+            this.copyToClipboard();
+        }/*
+        if(e.getActionCommand().compareTo("Paste Pad")==0){
+            this.paste(popupPad);
+        }*/
+        if(e.getActionCommand().compareTo("Copy Pad")==0){
+            this.copyToClipboard(popupPad);
+        }
+        if(e.getActionCommand().compareTo("Save")==0){
+        	File desktop = new File(System.getProperty("user.home"), "Desktop");
+        	DateFormat df = new SimpleDateFormat("MM-dd-yyyy_hh.mm.ss_aa");
+        	String data = df.format(new Date());
+        	this.save(desktop.getAbsolutePath() +File.separator+"Plot_"+data+".png");
+        	System.out.println("Saved File:"+desktop.getAbsolutePath() +File.separator+"Plot_"+data+".png");
+        }
+        if(e.getActionCommand().compareTo("Save As...")==0){
+            final JFileChooser fc = new JFileChooser("Save As...");
+        	File desktop = new File(System.getProperty("user.home"), "Desktop");
+        	DateFormat df = new SimpleDateFormat("MM-dd-yyyy_hh.mm.ss_aa");
+        	String data = df.format(new Date());
+        	this.save(desktop.getAbsolutePath() +File.separator+"Plot_"+data+".png");
+            fc.setSelectedFile(new File(desktop.getAbsolutePath() +File.separator+"Plot_"+data+".png"));
+            FileFilter filter = new FileNameExtensionFilter("PNG File","png");
+            fc.addChoosableFileFilter(filter);
+            fc.setFileFilter(filter);
+            //In response to a button click:
+            int returnVal = fc.showSaveDialog(this);
+            
+            if (returnVal == JFileChooser.APPROVE_OPTION) {
+                File file = fc.getSelectedFile();
+                if(file.exists()==true){
+                    JOptionPane.showMessageDialog(this, "Error. The file already esits....");
+                } else {
+                    //System.out.println("saving file : " + file.getAbsolutePath());
+                    this.save(file.getAbsolutePath());
+                }
+            }
+        }/*
+        if(e.getActionCommand().compareTo("Open in New Window")==0){
+        	this.openInNewWindow(popupPad);
+        }*/
+        
+    }
+    private BufferedImage getScreenShot(){
+        BufferedImage bi = new BufferedImage(
+            this.getWidth(), this.getHeight(), BufferedImage.TYPE_4BYTE_ABGR_PRE);
+        this.paint(bi.getGraphics());
+        return bi;
+    }
+    
+    private BufferedImage getScreenShot(int index){
+        //BufferedImage bi = new BufferedImage(
+        //    (int)this.getPad(index).getWidth(), (int)this.getPad(index).getHeight(), BufferedImage.TYPE_4BYTE_ABGR_PRE);
+    	BufferedImage bi = new BufferedImage(
+                this.getWidth(), this.getHeight(), BufferedImage.TYPE_4BYTE_ABGR_PRE);
+    	this.getPad(index).paint(bi.getGraphics());
+        return bi;
+    }
+    public void copyToClipboard(){
+    	TransferableImage trans = new TransferableImage( getScreenShot() );
+        Clipboard c = Toolkit.getDefaultToolkit().getSystemClipboard();
+        c.setContents( trans, null );
+    }
+    
+    private void copyToClipboard(int popupPad) {
+    	TransferableImage trans = new TransferableImage(getScreenShot(popupPad));
+    	//trans.setDataSetCollection(this.getPad(popupPad).getPad().getCollection());
+        Clipboard c = Toolkit.getDefaultToolkit().getSystemClipboard();
+        c.setContents(trans, null );
+    }
+
+    
+    public void save(String filename){    	
+    	  File imageFile = new File(filename);
+    	    try{
+    	        imageFile.createNewFile();
+    	        ImageIO.write(getScreenShot(), "png", imageFile);
+    	    }catch(Exception ex){
+    	    }
+    }
+    
     public static void main(String[] args){
         JFrame frame = new JFrame();
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setSize(500, 400);
         EmbeddedCanvas canvas = new EmbeddedCanvas();
-        canvas.divide(1, 3);
-        canvas.setAxisFontSize(8);
+        canvas.divide(2, 2);
+        canvas.setAxisFontSize(14);
         //canvas.getPad(0).getAxisFrame().getAxisX().setAxisFontSize(18);
         //canvas.getPad(1).getAxisFrame().getAxisY().setAxisFontSize(18);
         //canvas.getPad(0).getAxisFrame().setDrawAxisZ(true);
         
-        H1F h1 = FunctionFactory.createDebugH1F(6);
+        H1F h1  = FunctionFactory.createDebugH1F(6);
         H1F h2  = FunctionFactory.randomGausian(100, 0.4, 5.6, 200000, 2.3, 0.8);
         H1F h2b = FunctionFactory.randomGausian(100, 0.4, 5.6, 80000, 4.0, 0.8);
         H2F h2d = FunctionFactory.randomGausian2D(40, 0.4, 5.6, 800000, 2.3, 0.8);
         
-        h1.setFillColor(43);
-        h2.setFillColor(44);
-        h2b.setFillColor(43);
-        HistogramPlotter  plotter  = new HistogramPlotter(h1);
-        HistogramPlotter  plotter2 = new HistogramPlotter(h2);
-        HistogramPlotter  plotter2b = new HistogramPlotter(h2b);
-        Histogram2DPlotter  plotter3 = new Histogram2DPlotter(h2d);
-        
-        canvas.getPad(0).addPlotter(plotter);
-        canvas.getPad(1).addPlotter(plotter2);
-        canvas.getPad(2).addPlotter(plotter3);
-        
-        canvas.divide(4,4);
-        canvas.setAxisFontSize(10);
-        for(int i = 0; i < 16; i++){
-            
-            //canvas.getPad(i).getAxisFrame().getAxisY().setTitle("Counts");
-            //canvas.getPad(i).getAxisFrame().setDrawAxisZ(true);
-            if(i%3==0){
-                canvas.getPad(i).addPlotter(plotter3);
-                //canvas.getPad(i).getAxisFrame().setDrawAxisZ(true);
-            } else {
-                canvas.getPad(i).getAxisFrame().getAxisX().setTitle("M^2 [GeV]");
-            //canvas.getPad(i).setAxisRangeX(2, 8);
-            //canvas.getPad(i).setAxisRangeY(0, 1000);
-                canvas.getPad(i).addPlotter(plotter2b);
-                canvas.getPad(i).addPlotter(plotter2);
-            }
-        }
-        /*
-        canvas.divide(2, 2);
-        for(int i = 0 ; i < 4; i ++){
-            canvas.getPad(i).getAxisFrame().getAxisX().setTitle("M^2 [GeV]");
-            canvas.getPad(i).getAxisFrame().getAxisY().setTitle("Counts");
+        DataGroup group = new DataGroup(2,1);
+        h2b.setName("h2b");
+        GraphErrors hprofile = h2d.getProfileX();
+        group.addDataSet(h2d, 0);
+        group.addDataSet(hprofile, 1);
+        canvas.draw(group);
+        /*for(int i =0; i < 4; i++){
+            canvas.cd(i);
+            canvas.draw(h2);
         }*/
         frame.add(canvas);
         frame.pack();
         frame.setVisible(true);
         
-        try {
-            Thread.sleep(7000);
-            canvas.initTimer(800);
-        } catch (InterruptedException ex) {
-            Logger.getLogger(EmbeddedCanvas.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        
     }
+
+   
 }

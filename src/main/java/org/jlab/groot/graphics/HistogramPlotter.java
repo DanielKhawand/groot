@@ -6,6 +6,8 @@
 package org.jlab.groot.graphics;
 
 import org.jlab.groot.graphics.IDataSetPlotter;
+
+import java.awt.BasicStroke;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.geom.GeneralPath;
@@ -109,13 +111,14 @@ public class HistogramPlotter implements IDataSetPlotter  {
         //        + frame.getAxis(1).getDimension().getMin();
         yp = frame.getAxisPointY(0.0);
         path.lineTo((int) xpe, (int) yp);
-        int fillColor = this.dataset.getAttributes().get(AttributeType.FILL_COLOR);
+        int fillColor = this.dataset.getAttributes().getFillColor();
         if(fillColor>=0){
             g2d.setColor(TStyle.getColor(fillColor));
             g2d.fill(path);
         }
         //g2d.fill(path);
-        int lineColor = this.dataset.getAttributes().get(AttributeType.LINE_COLOR);
+        g2d.setStroke(new BasicStroke(this.dataset.getAttributes().getLineWidth()));
+        int lineColor = this.dataset.getAttributes().getLineColor();
         g2d.setColor(TStyle.getColor(lineColor));
         g2d.draw(path);
     }

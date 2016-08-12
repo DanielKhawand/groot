@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import org.jlab.groot.base.AttributeType;
 import org.jlab.groot.base.Attributes;
+import org.jlab.groot.base.DatasetAttributes;
 import org.jlab.groot.math.Axis;
 import org.jlab.groot.math.Func1D;
 import org.jlab.groot.math.StatNumber;
@@ -30,7 +31,7 @@ public class H1F  implements IDataSet {
     int        histogramUnderFlow = 0;
     int        histogramOverFlow  = 0;
     int        histogramEntries   = 0;
-    Attributes hAttr     = new Attributes();
+    DatasetAttributes hAttr     = new DatasetAttributes();
     
     Func1D     fittedFunction = null;
     
@@ -134,24 +135,25 @@ public class H1F  implements IDataSet {
     }
     
     public final void initAttributes(){
-        this.hAttr.add(AttributeType.LINE_WIDTH,  1);
-        this.hAttr.add(AttributeType.LINE_COLOR,  1);
-        this.hAttr.add(AttributeType.LINE_STYLE,  1);
-        this.hAttr.add(AttributeType.FILL_COLOR, -1);
-        this.hAttr.add(AttributeType.FILL_STYLE,  0);
-        this.hAttr.add(AttributeType.MARKER_SIZE, 6);
-        this.hAttr.add(AttributeType.MARKER_STYLE, 1);
-        this.hAttr.add(AttributeType.MARKER_COLOR, 2);
-        this.hAttr.addString(AttributeType.STRING_TITLE_X, "");
-        this.hAttr.addString(AttributeType.STRING_TITLE_Y, "");
+        this.hAttr.setLineWidth(1);
+        this.hAttr.setLineColor(1);
+        this.hAttr.setLineStyle(1);
+        this.hAttr.setFillColor(-1);
+        this.hAttr.setFillStyle(0);
+        //this.hAttr.setMarkerSize(6);
+        //this.hAttr.setMarkerStyle(1);
+        //this.hAttr.setMarkerColor(2);
+        //this.hAttr.addString(AttributeType.STRING_TITLE_X, "");
+        //this.hAttr.addString(AttributeType.STRING_TITLE_Y, "");  
     }
+    
     /**
      * Sets the x-axis title to the specified parameter
      * @param xTitle		The desired title of the x-axis
      */
     public final void setXTitle(String xTitle) {
         //this.getXaxis().setTitle(xTitle);
-        this.hAttr.addString(AttributeType.STRING_TITLE_X, xTitle);
+        //this.hAttr.addString(AttributeType.STRING_TITLE_X, xTitle);
     }
     
     /**
@@ -161,7 +163,7 @@ public class H1F  implements IDataSet {
      */
     public final void setYTitle(String yTitle) {
         //this.getYaxis().setTitle(yTitle);
-        this.hAttr.addString(AttributeType.STRING_TITLE_Y, yTitle);
+        //this.hAttr.addString(AttributeType.STRING_TITLE_Y, yTitle);
     }
     
     public static H1F  create(String name, int bins, DataVector vec){
@@ -208,7 +210,7 @@ public class H1F  implements IDataSet {
      */
     public final void setTitle(String title) {
         //histTitle = title;
-        this.hAttr.addString(AttributeType.STRING_TITLE, title);
+        //this.hAttr.addString(AttributeType.STRING_TITLE, title);
     }
     
     /**
@@ -269,7 +271,7 @@ public class H1F  implements IDataSet {
     public double getMean() {
         double mean  = 0.0;
         double summ  = 0.0;
-        int    count = 0; 
+        double count = 0; 
         for(int i = 0; i < this.getAxis().getNBins(); i++){
             double bincontent =  this.getBinContent(i);
             //System.err.println(" bin count = " + count + " content summ = " + bincontent);
@@ -756,7 +758,7 @@ public class H1F  implements IDataSet {
     }
 
     @Override
-    public Attributes getAttributes() {
+    public DatasetAttributes getAttributes() {
         return this.hAttr;
     }
 
@@ -792,29 +794,29 @@ public class H1F  implements IDataSet {
      * @return 
      */  
     public H1F setFillColor(int color){
-        this.hAttr.add(AttributeType.FILL_COLOR, color);
+        this.hAttr.setFillColor(color);
         return this;
     }
   
     public int getFillColor(){
-        return this.hAttr.get(AttributeType.FILL_COLOR);
+        return this.hAttr.getFillColor();
     }
     
     public H1F setLineColor(int color){
-        this.hAttr.add(AttributeType.LINE_COLOR, color);
+       this.hAttr.setLineColor(color);
         return this;
     }
     
     public int getLineColor(){
-        return this.hAttr.get(AttributeType.LINE_COLOR);
+        return this.hAttr.getLineColor();
     }
     
-    public H1F setLineWdith(int width){ 
-            hAttr.add(AttributeType.LINE_WIDTH, width);
-            return this;
+    public H1F setLineWidth(int width){ 
+    	this.hAttr.setLineWidth(width);
+        return this;
     }
     public int getLineWidth(){
-        return this.hAttr.get(AttributeType.LINE_WIDTH);
+        return this.hAttr.getLineWidth();
     }
 
     public void setFunction(Func1D f){
@@ -828,7 +830,7 @@ public class H1F  implements IDataSet {
     @Override
     public PaveText getStatBox() {
         PaveText stat = new PaveText(2);
-        stat.addText("Entries",Integer.toString(histogramEntries));
+        stat.addText("Entries",Integer.toString(this.getEntries()));
         stat.addText("Mean",String.format("%.3f", this.getMean()));
         stat.addText("RMS",String.format("%.3f", this.getRMS()));
         stat.addText("Underflow",Integer.toString(this.histogramUnderFlow));
@@ -841,9 +843,9 @@ public class H1F  implements IDataSet {
             int npars = this.fittedFunction.getNPars();
             for(int i = 0; i < npars; i++){
                 stat.addText(this.fittedFunction.parameter(i).name(),
-                        String.format("%.3f", 
-                                fittedFunction.parameter(i).value()
-                                //fittedFunction.parameter(i).error()
+                        String.format("%.3f/%.4f", 
+                                fittedFunction.parameter(i).value(),
+                                fittedFunction.parameter(i).error()
                                 ));
             }
         }
